@@ -1,7 +1,0 @@
-2024-11-01T09:43:00.449+0800	ERROR	totp/totp.go:33	Totp Generate Error:%!(EXTRA *errors.errorString=Issuer must be set)
-NoteAssistant/totp.(*Totp).Generate
-	D:/Document/CodingSrc/GoProject/NoteAssistant/totp/totp.go:33
-NoteAssistant/totp.TestTotpCommon
-	D:/Document/CodingSrc/GoProject/NoteAssistant/totp/totp_test.go:7
-testing.tRunner
-	C:/Program Files/Go/src/testing/testing.go:1690
