@@ -10,16 +10,30 @@ import (
 	"github.com/mdp/qrterminal/v3"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
+	"github.com/spf13/viper"
 	"image/png"
 	"os"
 	"time"
 )
 
+func setDefaultJwtConfig() {
+	viper.SetDefault("jwt.issuer", "example.com")
+}
+
+var (
+	issuer string
+)
+
+func init() {
+	setDefaultJwtConfig()
+	issuer = viper.GetString("jwt.issuer")
+}
+
 type Totp struct{}
 
 func Generate(email string) *otp.Key {
 	key, err := totp.Generate(totp.GenerateOpts{
-		Issuer:      "Tomato",
+		Issuer:      issuer,
 		AccountName: email,
 		Period:      30,
 	})
