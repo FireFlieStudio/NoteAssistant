@@ -3,6 +3,8 @@ package totp
 import (
 	"NoteAssistant/logger"
 	"bytes"
+	"crypto/md5"
+	"encoding/base32"
 	"encoding/base64"
 	"errors"
 	"github.com/mdp/qrterminal/v3"
@@ -13,46 +15,27 @@ import (
 	"time"
 )
 
-type Totp struct {
-	Secret         string
-	QRCodeUrl      string
-	QRCodeImageB64 string
-}
+type Totp struct{}
 
-func NewTotp() *Totp {
-	return &Totp{}
-}
-
-func (t *Totp) Generate(accountName string) error {
+func Generate(email string) *otp.Key {
 	key, err := totp.Generate(totp.GenerateOpts{
 		Issuer:      "Tomato",
-		AccountName: accountName,
+		AccountName: email,
 		Period:      30,
 	})
 	if err != nil {
 		logger.Error("Totp Generate Error:", err)
-		return err
+		return nil
 	}
-
-	imageB64, err := t.generateQRCode(key)
-	if err != nil {
-		logger.Error("Totp GenerateQRCode Error:", err)
-		return err
-	}
-
-	t.QRCodeImageB64 = imageB64
-	t.Secret = key.Secret()
-	t.QRCodeUrl = key.String()
-
-	return nil
+	return key
 }
 
-func (t *Totp) GeneratePassCode() (string, error) {
-	if t.Secret == "" {
+func GeneratePassCode(secret string) (string, error) {
+	if len(secret) == 0 {
 		logger.Error("Totp Generate PassCode Error, Secret is empty")
 		return "", errors.New("totp Generate PassCode Error, Secret is empty")
 	}
-	passCode, err := totp.GenerateCode(t.Secret, time.Now())
+	passCode, err := totp.GenerateCode(secret, time.Now())
 	if err != nil {
 		logger.Error("Totp Generate PassCode Error:", err)
 		return "", err
@@ -60,15 +43,15 @@ func (t *Totp) GeneratePassCode() (string, error) {
 	return passCode, nil
 }
 
-func (t *Totp) ValidatePassCode(passCode string) bool {
-	return totp.Validate(passCode, t.Secret)
+func ValidatePassCode(secret, passCode string) bool {
+	return totp.Validate(passCode, secret)
 }
 
-func (t *Totp) DisplayQRCodeOnTerminal() {
-	qrterminal.Generate(t.QRCodeUrl, qrterminal.L, os.Stdout)
+func DisplayQRCodeOnTerminal(qrCodeUrl string) {
+	qrterminal.Generate(qrCodeUrl, qrterminal.L, os.Stdout)
 }
 
-func (t *Totp) generateQRCode(key *otp.Key) (string, error) {
+func GenerateQRCodeB64(key *otp.Key) (string, error) {
 	var buf bytes.Buffer
 	img, err := key.Image(256, 256)
 	if err != nil {
@@ -77,4 +60,15 @@ func (t *Totp) generateQRCode(key *otp.Key) (string, error) {
 	}
 	png.Encode(&buf, img)
 	return base64.StdEncoding.EncodeToString(buf.Bytes()), nil
+}
+
+func getSecretByEmail(email string) string {
+	mdtVal := md5.Sum([]byte(email))
+	b32NoPadding := base32.StdEncoding.WithPadding(base32.NoPadding)
+	return b32NoPadding.EncodeToString(mdtVal[:])
+}
+
+func ValidatePassCodeByEmail(email, passCode string) bool {
+	secret := getSecretByEmail(email)
+	return ValidatePassCode(secret, passCode)
 }

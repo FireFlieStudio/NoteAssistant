@@ -3,18 +3,10 @@ package totp
 import "testing"
 
 func TestTotpCommon(t *testing.T) {
-	totp := NewTotp()
-	if err := totp.Generate("admin@example.com"); err != nil {
-		panic(err)
-		return
-	}
-	passcode, err := totp.GeneratePassCode()
-	if err != nil {
-		panic(err)
-		return
-	}
-	println(passcode)
-	println(totp.ValidatePassCode(passcode))
-	println(totp.QRCodeImageB64)
-	totp.DisplayQRCodeOnTerminal()
+	key := Generate("example@example.com")
+	imageB64, _ := GenerateQRCodeB64(key)
+	DisplayQRCodeOnTerminal(key.String())
+	println(imageB64)
+	passCode, _ := GeneratePassCode(key.Secret())
+	println(ValidatePassCode(key.Secret(), passCode))
 }
