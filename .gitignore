@@ -102,3 +102,5 @@ fabric.properties
 
 # config with secret
 conf/settings.yaml
+
+*.db
