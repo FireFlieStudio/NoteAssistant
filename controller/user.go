@@ -2,52 +2,53 @@ package controller
 
 import (
 	"NoteAssistant/common"
-	"NoteAssistant/common/request"
 	"NoteAssistant/model"
 	"NoteAssistant/resp"
 	"NoteAssistant/totp"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"net/http"
 )
 
 func RegisterWithTotp(ctx *gin.Context) {
-	email := ctx.Query("email")
+	email := ctx.PostForm("email")
 	if err := validator.New().Var(email, "required,email"); err != nil {
-		resp.Send(ctx, http.StatusBadRequest, gin.H{"Error": "邮箱不能为空或邮箱格式有误"})
+		resp.Failed(ctx, err)
 		return
 	}
 
 	key := totp.Generate(email)
 	qrCodeImageB64, err := totp.GenerateQRCodeB64(key)
 	if err != nil {
-		resp.BadRequest(ctx, err)
+		resp.Failed(ctx, err)
 		return
 	}
 	resp.Send(ctx, http.StatusOK, gin.H{"email": email, "QRCodeImageB64": qrCodeImageB64, "secret": key.Secret()})
 }
 
 func LoginWithTotp(ctx *gin.Context) {
-	var form request.Login
-	if err := ctx.Bind(&form); err != nil {
-		resp.ValidateError(ctx, form)
+	passCode := ctx.PostForm("passCode")
+	email := ctx.PostForm("email")
+	if err := validator.New().Var(passCode, "required,len=6"); err != nil {
+		resp.Failed(ctx, err)
+		return
+	}
+	if err := validator.New().Var(email, "required,email"); err != nil {
+		resp.Failed(ctx, err)
 		return
 	}
 
-	user := model.User{Email: form.Email}
-	common.GetDB().First(&user)
-
-	if user.ID == 0 {
-		resp.Failed(ctx, gin.H{"Error": "用户不存在"})
-		return
-	}
-
+	DB := common.GetDB()
+	user := model.User{Email: email}
+	fmt.Println(user)
+	DB.First(&user)
 	if len(user.Secret) == 0 {
 		resp.Send(ctx, http.StatusBadRequest, gin.H{"Error": "用户不存在或密钥未绑定"})
 		return
 	}
 
-	if !totp.ValidatePassCode(user.Secret, form.PassCode) {
+	if !totp.ValidatePassCode(user.Secret, passCode) {
 		resp.Forbidden(ctx)
 		return
 	}
@@ -62,23 +63,35 @@ func LoginWithTotp(ctx *gin.Context) {
 }
 
 func BindSecret(ctx *gin.Context) {
-	var form request.Register
-	if err := ctx.Bind(&form); err != nil {
-		resp.ValidateError(ctx, form)
+	passCode := ctx.PostForm("passCode")
+	email := ctx.PostForm("email")
+	secret := ctx.PostForm("secret")
+	if err := validator.New().Var(passCode, "required,len=6"); err != nil {
+		resp.Failed(ctx, err)
 		return
 	}
 
-	if !totp.ValidatePassCode(form.Secret, form.PassCode) {
+	if err := validator.New().Var(email, "required,email"); err != nil {
+		resp.Failed(ctx, err)
+		return
+	}
+
+	if err := validator.New().Var(secret, "required"); err != nil {
+		resp.Failed(ctx, err)
+		return
+	}
+
+	if !totp.ValidatePassCode(secret, passCode) {
 		resp.Forbidden(ctx)
 		return
 	}
 
-	common.GetDB().Create(&model.User{
+	DB := common.GetDB()
+	DB.Create(&model.User{
 		Name:   "ChangeMePlz",
-		Email:  form.Email,
-		Secret: form.Secret,
+		Email:  email,
+		Secret: secret,
 	})
-	resp.Success(ctx, gin.H{"msg": "注册成功"})
 }
 
 func Info(ctx *gin.Context) {

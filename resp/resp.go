@@ -1,7 +1,6 @@
 package resp
 
 import (
-	"NoteAssistant/common/request"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
@@ -14,11 +13,7 @@ func Success(ctx *gin.Context, data gin.H) {
 	Send(ctx, http.StatusOK, data)
 }
 
-func Failed(ctx *gin.Context, data gin.H) {
-	Send(ctx, http.StatusBadRequest, data)
-}
-
-func BadRequest(ctx *gin.Context, err error) {
+func Failed(ctx *gin.Context, err error) {
 	Send(ctx, http.StatusBadRequest, gin.H{"Error": err.Error()})
 }
 
@@ -28,8 +23,4 @@ func InternalError(ctx *gin.Context, err error) {
 
 func Forbidden(ctx *gin.Context) {
 	Send(ctx, http.StatusForbidden, gin.H{"Error": "权限不足"})
-}
-
-func ValidateError(ctx *gin.Context, validator request.Validator) {
-	Send(ctx, http.StatusBadRequest, gin.H{"Error": validator.GetMessages()})
 }
