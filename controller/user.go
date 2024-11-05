@@ -14,14 +14,14 @@ import (
 func RegisterWithTotp(ctx *gin.Context) {
 	email := ctx.PostForm("email")
 	if err := validator.New().Var(email, "required,email"); err != nil {
-		resp.Send(ctx, http.StatusBadRequest, gin.H{"Error": err.Error()})
+		resp.Failed(ctx, err)
 		return
 	}
 
 	key := totp.Generate(email)
 	qrCodeImageB64, err := totp.GenerateQRCodeB64(key)
 	if err != nil {
-		resp.Send(ctx, http.StatusBadRequest, gin.H{"Error": err.Error()})
+		resp.Failed(ctx, err)
 		return
 	}
 	resp.Send(ctx, http.StatusOK, gin.H{"email": email, "QRCodeImageB64": qrCodeImageB64, "secret": key.Secret()})
@@ -31,11 +31,11 @@ func LoginWithTotp(ctx *gin.Context) {
 	passCode := ctx.PostForm("passCode")
 	email := ctx.PostForm("email")
 	if err := validator.New().Var(passCode, "required,len=6"); err != nil {
-		resp.Send(ctx, http.StatusBadRequest, gin.H{"Error": err.Error()})
+		resp.Failed(ctx, err)
 		return
 	}
 	if err := validator.New().Var(email, "required,email"); err != nil {
-		resp.Send(ctx, http.StatusBadRequest, gin.H{"Error": err.Error()})
+		resp.Failed(ctx, err)
 		return
 	}
 
@@ -49,17 +49,17 @@ func LoginWithTotp(ctx *gin.Context) {
 	}
 
 	if !totp.ValidatePassCode(user.Secret, passCode) {
-		ctx.JSON(http.StatusForbidden, gin.H{"msg": "权限不足"})
+		resp.Forbidden(ctx)
 		return
 	}
 
 	token, err := common.ReleaseToken(user)
 	if err != nil {
-		resp.Send(ctx, http.StatusInternalServerError, gin.H{"Error": err.Error()})
+		resp.InternalError(ctx, err)
 		return
 	}
 
-	resp.Send(ctx, http.StatusOK, gin.H{"token": token})
+	resp.Success(ctx, gin.H{"token": token})
 }
 
 func BindSecret(ctx *gin.Context) {
@@ -67,22 +67,22 @@ func BindSecret(ctx *gin.Context) {
 	email := ctx.PostForm("email")
 	secret := ctx.PostForm("secret")
 	if err := validator.New().Var(passCode, "required,len=6"); err != nil {
-		resp.Send(ctx, http.StatusBadRequest, gin.H{"Error": err.Error()})
+		resp.Failed(ctx, err)
 		return
 	}
 
 	if err := validator.New().Var(email, "required,email"); err != nil {
-		resp.Send(ctx, http.StatusBadRequest, gin.H{"Error": err.Error()})
+		resp.Failed(ctx, err)
 		return
 	}
 
 	if err := validator.New().Var(secret, "required"); err != nil {
-		resp.Send(ctx, http.StatusBadRequest, gin.H{"Error": err.Error()})
+		resp.Failed(ctx, err)
 		return
 	}
 
 	if !totp.ValidatePassCode(secret, passCode) {
-		resp.Send(ctx, http.StatusBadRequest, gin.H{"Error": "Totp验证不通过"})
+		resp.Forbidden(ctx)
 		return
 	}
 
@@ -97,7 +97,7 @@ func BindSecret(ctx *gin.Context) {
 func Info(ctx *gin.Context) {
 	UID, ok := ctx.Get("UID")
 	if !ok {
-		resp.Failed(ctx, nil)
+		resp.Forbidden(ctx)
 		return
 	}
 	resp.Success(ctx, gin.H{"UID": UID})

@@ -5,7 +5,6 @@ import (
 	"NoteAssistant/model"
 	"NoteAssistant/resp"
 	"github.com/gin-gonic/gin"
-	"net/http"
 	"strings"
 )
 
@@ -14,14 +13,14 @@ func AuthMiddleware() gin.HandlerFunc {
 		tokenString := ctx.GetHeader("Authorization")
 
 		if tokenString == "" || !strings.HasPrefix(tokenString, "Bearer ") {
-			resp.Send(ctx, http.StatusUnauthorized, gin.H{"Error": "权限不足"})
+			resp.Forbidden(ctx)
 			ctx.Abort()
 			return
 		}
 
 		token, claims, err := common.ParseToken(tokenString)
 		if err != nil || !token.Valid {
-			resp.Send(ctx, http.StatusUnauthorized, gin.H{"Error": "权限不足"})
+			resp.Forbidden(ctx)
 			ctx.Abort()
 			return
 		}
@@ -30,7 +29,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		user := model.User{ID: claims.UserID}
 		DB.First(&user)
 		if user.ID == 0 {
-			resp.Send(ctx, http.StatusUnauthorized, gin.H{"Error": "权限不足"})
+			resp.Forbidden(ctx)
 			ctx.Abort()
 			return
 		}
