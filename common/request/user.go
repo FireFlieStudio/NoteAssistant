@@ -1,5 +1,15 @@
 package request
 
+type GetQRCode struct {
+	Email string `form:"email" json:"email" binding:"required,email"`
+}
+
+func (getQRCode GetQRCode) GetMessages() ValidatorMessages {
+	return ValidatorMessages{
+		"Email.required": "邮箱不能为空",
+	}
+}
+
 type Register struct {
 	Email    string `form:"email" json:"email" binding:"required,email"`
 	PassCode string `form:"passcode" json:"passcode" binding:"required"`

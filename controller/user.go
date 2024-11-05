@@ -7,24 +7,23 @@ import (
 	"NoteAssistant/resp"
 	"NoteAssistant/totp"
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 	"net/http"
 )
 
 func RegisterWithTotp(ctx *gin.Context) {
-	email := ctx.Query("email")
-	if err := validator.New().Var(email, "required,email"); err != nil {
-		resp.Failed(ctx, gin.H{"Error": "邮箱为空或邮箱格式不正确"})
+	var form request.GetQRCode
+	if err := ctx.Bind(&form); err != nil {
+		resp.ValidateError(ctx, form, err)
 		return
 	}
 
-	key := totp.Generate(email)
+	key := totp.Generate(form.Email)
 	qrCodeImageB64, err := totp.GenerateQRCodeB64(key)
 	if err != nil {
 		resp.InternalError(ctx, err)
 		return
 	}
-	resp.Send(ctx, http.StatusOK, gin.H{"email": email, "QRCodeImageB64": qrCodeImageB64, "secret": key.Secret()})
+	resp.Send(ctx, http.StatusOK, gin.H{"email": form.Email, "QRCodeImageB64": qrCodeImageB64, "secret": key.Secret()})
 }
 
 func LoginWithTotp(ctx *gin.Context) {
