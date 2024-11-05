@@ -12,9 +12,9 @@ import (
 )
 
 func RegisterWithTotp(ctx *gin.Context) {
-	email := ctx.PostForm("email")
+	email := ctx.Query("email")
 	if err := validator.New().Var(email, "required,email"); err != nil {
-		resp.Failed(ctx, err)
+		resp.Failed(ctx, gin.H{"Error": "邮箱为空或邮箱格式不正确"})
 		return
 	}
 
@@ -30,7 +30,8 @@ func RegisterWithTotp(ctx *gin.Context) {
 func LoginWithTotp(ctx *gin.Context) {
 	var form request.Login
 	if err := ctx.Bind(&form); err != nil {
-		resp.ValidateError(ctx, form)
+		resp.ValidateError(ctx, form, err)
+		return
 	}
 
 	user := model.User{Email: form.Email}
@@ -57,7 +58,18 @@ func LoginWithTotp(ctx *gin.Context) {
 func BindSecret(ctx *gin.Context) {
 	var form request.Register
 	if err := ctx.Bind(&form); err != nil {
-		resp.ValidateError(ctx, form)
+		resp.ValidateError(ctx, form, err)
+		return
+	}
+
+	user := &model.User{
+		Name:   "ChangeMePlz",
+		Email:  form.Email,
+		Secret: form.Secret,
+	}
+	if userExists(user) {
+		resp.Failed(ctx, gin.H{"Error": "注册失败，用户已存在!"})
+		return
 	}
 
 	if !totp.ValidatePassCode(form.Secret, form.PassCode) {
@@ -65,11 +77,8 @@ func BindSecret(ctx *gin.Context) {
 		return
 	}
 
-	common.GetDB().Create(&model.User{
-		Name:   "ChangeMePlz",
-		Email:  form.Email,
-		Secret: form.Secret,
-	})
+	common.GetDB().Create(user)
+	resp.Success(ctx, gin.H{"name": user.Name, "email": user.Email})
 }
 
 func Info(ctx *gin.Context) {
@@ -79,4 +88,9 @@ func Info(ctx *gin.Context) {
 		return
 	}
 	resp.Success(ctx, gin.H{"UID": UID})
+}
+
+func userExists(user *model.User) bool {
+	common.GetDB().First(user)
+	return user.ID != 0
 }
