@@ -2,10 +2,10 @@ package controller
 
 import (
 	"NoteAssistant/common"
+	"NoteAssistant/common/request"
 	"NoteAssistant/model"
 	"NoteAssistant/resp"
 	"NoteAssistant/totp"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"net/http"
@@ -21,34 +21,26 @@ func RegisterWithTotp(ctx *gin.Context) {
 	key := totp.Generate(email)
 	qrCodeImageB64, err := totp.GenerateQRCodeB64(key)
 	if err != nil {
-		resp.Failed(ctx, err)
+		resp.InternalError(ctx, err)
 		return
 	}
 	resp.Send(ctx, http.StatusOK, gin.H{"email": email, "QRCodeImageB64": qrCodeImageB64, "secret": key.Secret()})
 }
 
 func LoginWithTotp(ctx *gin.Context) {
-	passCode := ctx.PostForm("passCode")
-	email := ctx.PostForm("email")
-	if err := validator.New().Var(passCode, "required,len=6"); err != nil {
-		resp.Failed(ctx, err)
-		return
-	}
-	if err := validator.New().Var(email, "required,email"); err != nil {
-		resp.Failed(ctx, err)
-		return
+	var form request.Login
+	if err := ctx.Bind(&form); err != nil {
+		resp.ValidateError(ctx, form)
 	}
 
-	DB := common.GetDB()
-	user := model.User{Email: email}
-	fmt.Println(user)
-	DB.First(&user)
-	if len(user.Secret) == 0 {
+	user := model.User{Email: form.Email}
+	common.GetDB().First(&user)
+	if user.ID == 0 || len(user.Secret) == 0 {
 		resp.Send(ctx, http.StatusBadRequest, gin.H{"Error": "用户不存在或密钥未绑定"})
 		return
 	}
 
-	if !totp.ValidatePassCode(user.Secret, passCode) {
+	if !totp.ValidatePassCode(user.Secret, form.PassCode) {
 		resp.Forbidden(ctx)
 		return
 	}
@@ -63,34 +55,20 @@ func LoginWithTotp(ctx *gin.Context) {
 }
 
 func BindSecret(ctx *gin.Context) {
-	passCode := ctx.PostForm("passCode")
-	email := ctx.PostForm("email")
-	secret := ctx.PostForm("secret")
-	if err := validator.New().Var(passCode, "required,len=6"); err != nil {
-		resp.Failed(ctx, err)
-		return
+	var form request.Register
+	if err := ctx.Bind(&form); err != nil {
+		resp.ValidateError(ctx, form)
 	}
 
-	if err := validator.New().Var(email, "required,email"); err != nil {
-		resp.Failed(ctx, err)
-		return
-	}
-
-	if err := validator.New().Var(secret, "required"); err != nil {
-		resp.Failed(ctx, err)
-		return
-	}
-
-	if !totp.ValidatePassCode(secret, passCode) {
+	if !totp.ValidatePassCode(form.Secret, form.PassCode) {
 		resp.Forbidden(ctx)
 		return
 	}
 
-	DB := common.GetDB()
-	DB.Create(&model.User{
+	common.GetDB().Create(&model.User{
 		Name:   "ChangeMePlz",
-		Email:  email,
-		Secret: secret,
+		Email:  form.Email,
+		Secret: form.Secret,
 	})
 }
 
